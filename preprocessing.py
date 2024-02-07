@@ -33,9 +33,20 @@ def clean_cylinder_nones(h_state):
     return h_state
 
 def train_regressor_for_native_vision(data, architecture=(5)):
-    h_states = [clean_cylinder_nones(parse_h_state(d['h_state'])) for d in data]
-    visions = [(d_state['right_native'], d_state['correction_right_sphere'], d_state['correction_right_cylinder'], d_state['corrected_right']) for d_state in h_states]
-    visions += [(d_state['left_native'], d_state['correction_left_sphere'], d_state['correction_left_cylinder'], d_state['corrected_left']) for d_state in h_states]
+    data = [clean_cylinder_nones(d) for d in data]
+    visions = [
+            (0.9, -0.5, 0., 1.),
+            (0.5, -1, 0., 1.),
+            (0.15, -1.5, 0., 1.),
+            (0.1, -2, 0., 1.),
+            (0.07, -3, 0., 1.),
+            (0.06, -4, 0., 1.),
+            (0.05, -5, 0., 1.),
+            (0.04, -6, 0., 1.),
+        ]
+    visions += 10*visions
+    visions = [(d['right_native'], d['correction_right_sphere'], d['correction_right_cylinder'], d['corrected_right']) for d in data]
+    visions += [(d['left_native'], d['correction_left_sphere'], d['correction_left_cylinder'], d['corrected_left']) for d in data]
     samples = [[float(value) if value != '1/~' else 0 for value in v] for v in visions if all(value != None for value in v)]
     X = [s[1:] for s in samples]
     y = [s[0] for s in samples]
@@ -52,4 +63,10 @@ def preprocess(data):
         del d['anamnesis']
         del d['right_cylinder_degrees']
         del d['left_cylinder_degrees']
-    return data
+        del d['birth']
+        del d['date']
+        del d['insurance']
+        del d['procedures']
+        del d['visit_type']
+        del d['paid']
+    return clean_diag
