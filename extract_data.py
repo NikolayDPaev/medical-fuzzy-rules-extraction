@@ -45,8 +45,10 @@ def get_data_from_file(file: str):
                 "birth": datetime.datetime(*birthdate_from_egn(a.find('EGN').text)),
                 "insurance": bool(text(a, 'IsHealthInsurance')),
                 "main_diag": text(a.find('MainDiag'), 'MKB'),
+                "diag": [text(p, 'MKB') for p in a.findAll('Diag')],
                 "procedures": [text(p, 'kodP') for p in a.findAll('Procedure')],
                 "anamnesis": text(a, 'Anamnesa'),
+                "diabetes": True if 'диабет' in text(a, 'Anamnesa').lower() else False,
                 "h_state": text(a, 'HState'),
                 "visit_type": get_visit_type(a.find('VisitFor'))
             }
