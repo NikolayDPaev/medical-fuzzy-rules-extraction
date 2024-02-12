@@ -4,13 +4,18 @@ from autograd import grad
 import autograd.scipy.stats.norm as norm
 from autograd.misc.flatten import flatten
 from autograd.misc.optimizers import adam, sgd
-from sklearn.covariance import log_likelihood
 
 def gaussian(x, mu, sigma):
     return np.exp(-(((x-mu)/sigma)**2)/2)
 
 class TS_FNN():
-    def __init__(self, antecedents_sets_count: list[int], rules_antecedent_sets: list[list[int]], t_norm = 'min') -> None:
+    def __init__(self, antecedents_sets_count: list[int], rules_antecedent_sets: list[list[int]], t_norm: Literal['min', 'prod'] = 'min'):
+        ''' Creates Fuzzy Neural Network equivalent to Takagi-Sugeno rule base.
+            Parameters:
+            antecedents_sets_count - list of integers that defies the size of the term set of each antecedent
+            rules_antecedent_sets - list of lists of integers that defies the index of the term of each antecedent of each rule
+            t_norm - {min, prod} - defies which t-norm to be used for calculating the firing strength of each rule
+        '''
         self.antecedents_sets_count = antecedents_sets_count
         self.rules_count = len(rules_antecedent_sets)
         self.antecedents_count = len(antecedents_sets_count)
@@ -23,19 +28,34 @@ class TS_FNN():
         elif t_norm == 'prod':
             self.t_norm = lambda x: np.prod(x)
 
-    def init_mu_parameters(self, mus):
+    def init_mu_parameters(self, mus: list[list[float]]):
+        ''' Initializes the mu of the gaussian membership function of each term set of each antecedent
+            Parameter:
+            mus - list of list of floats
+        '''
         self.parameters = (np.array(mus), self.parameters[1], self.parameters[2], self.parameters[3])
 
     def init_sigma_parameters(self, sigma):
+        ''' Initializes the sigma of the gaussian membership function of each term set of each antecedent
+            Parameter:
+            sigma - list of list of floats
+        '''
         self.parameters = (self.parameters[0], np.array(sigma), self.parameters[2], self.parameters[3])
 
     def zero_parameters(self):
+        ''' Initializes all parameters to zeros
+        '''
         self.parameters = ([np.zeros(sets_count) for sets_count in self.antecedents_sets_count],
                         [np.ones(sets_count) for sets_count in self.antecedents_sets_count],
                         np.ones(self.rules_count),
                         [np.ones(len(antecedent_count)) for antecedent_count in self.rules_antecedent_sets])
 
     def forward(self, parameters, x):
+        ''' Calculates the forward pass in the FNN with the specified parameters and input x
+            Parameters:
+            parameters - the weights of the FNN
+            x - the input
+        '''
         antecedent_sets_mu, antecedent_sets_sigma, rules_bias, rules_parameters = parameters
         sum_firing_strengths = 0
         sum_rule_results = 0
@@ -54,6 +74,10 @@ class TS_FNN():
         return sum_rule_results/sum_firing_strengths
 
     def predict(self, x):
+        ''' Calculates the forward pass in the FNN on the input x
+            Parameters:
+            x - the input
+        '''
         return self.forward(self.parameters, x)
 
     def fit(self, X, Y,
@@ -66,6 +90,20 @@ class TS_FNN():
             noise_variance: float = 0.01,
             noise_scale: float = 0.1
         ):
+        ''' Trains the FNN on the X and labels Y
+            Parameters:
+            X - training data
+            Y - labels
+            gradient_descent_strategy = {stochastic, full} - defies the strategy for gradient descent
+            loss_f = {squared_sum, log_likelihood} - defies the used loss function
+            gradient_accumulation_step - the number of samples for accumulating the gradient before updating the weights,
+                similar to batch size, works only with stochastic
+            epochs - the number of training epochs
+            learning rate - the learning rate of the gradient descent
+            L2 reg - the coefficient for l2 regularization when using squared sum loss
+            noise_variance - the variance of the noise when using squared sum loss
+            noise_scale - the scale of the noise when using log likelihood loss
+        '''
         # training examples should be vectors with length equal to antecedents_count
         assert(X.shape[1] == self.antecedents_count)
 
@@ -77,7 +115,7 @@ class TS_FNN():
                 log_lik = -np.sum((Y_bar - Y)**2) / noise_variance
                 return log_prior + log_lik
             elif loss_f == 'log_likelihood':
-                Y_bar = np.array([forward(parameters, x) for x in X])
+                Y_bar = np.array([self.forward(parameters, x) for x in X])
                 return np.sum(norm.logpdf(Y_bar, Y, noise_scale))
             else: assert(False)
 
